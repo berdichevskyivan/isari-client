@@ -1,4 +1,5 @@
 import requests
+import threading
 import json
 import os
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline, BitsAndBytesConfig
@@ -6,13 +7,14 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline, BitsAndB
 model = None
 tokenizer = None
 
-quantization_config = BitsAndBytesConfig(load_in_4bit=True)
+quantization_4bit_config = BitsAndBytesConfig(load_in_4bit=True)
+quantization_8bit_config = BitsAndBytesConfig(load_in_8bit=True)
 
 def load_model_and_tokenizer(model_path):
 
-    model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto", torch_dtype="auto", trust_remote_code=True)
+    # model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto", torch_dtype="auto", trust_remote_code=True)
     # Quantize the model when loading it for better inference times, but sadly, less performance AKA Intelligence
-    # model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto", torch_dtype="auto", quantization_config=quantization_config, trust_remote_code=True)
+    model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto", torch_dtype="auto", quantization_config=quantization_8bit_config, trust_remote_code=True)
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     return model, tokenizer
 
@@ -86,6 +88,15 @@ def check_for_tasks(worker_id):
                     # Wait for response
                     data = response.json()
                     print('data returned from storeCompletedTask', data)
+                    print('Removing cache file...')
+                    os.remove('cache.json')
+                    # If successful, we run the function again, looking for another task
+                    if data.get('success'):
+                        print('Successfully sent cached output to Gateway. Will retrieve another task in 5 seconds...')
+                        # Create a Timer object that will run 'my_function' after 'delay' seconds
+                        timer = threading.Timer(5, check_for_tasks, args=[worker_id])
+                        # Start the timer
+                        timer.start()
                 else:
                     # If the task_id doesn't match, delete the cache file
                     print('Cache file exists but it doesnt match the task id. Removing cache file...')
@@ -135,6 +146,13 @@ def check_for_tasks(worker_id):
                 print('data returned from storeCompletedTask', data)
                 print('Removing cache file...')
                 os.remove('cache.json')
+                # If successful, we run the function again, looking for another task
+                if data.get('success'):
+                    print('Successfully sent output to Gateway. Will retrieve another task in 5 seconds...')
+                    # Create a Timer object that will run 'my_function' after 'delay' seconds
+                    timer = threading.Timer(5, check_for_tasks, args=[worker_id])
+                    # Start the timer
+                    timer.start()
         else:
             if data.get('error_code') == 'ACTIVE_TASK':
                 print('Worker already has a task assigned. Checking for the cache.json file...')
