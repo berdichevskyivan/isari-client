@@ -1,13 +1,18 @@
 import requests
 import json
 import os
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline, BitsAndBytesConfig
 
 model = None
 tokenizer = None
 
+quantization_config = BitsAndBytesConfig(load_in_4bit=True)
+
 def load_model_and_tokenizer(model_path):
+
     model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto", torch_dtype="auto", trust_remote_code=True)
+    # Quantize the model when loading it for better inference times, but sadly, less performance AKA Intelligence
+    # model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto", torch_dtype="auto", quantization_config=quantization_config, trust_remote_code=True)
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     return model, tokenizer
 
@@ -38,18 +43,18 @@ def run_inference(input_text):
         output = pipe(messages, **generation_args)
         generated_text = output[0]['generated_text']
 
-        # Split the text by "},"
-        parts = generated_text.split("},")
+        # # Split the text by "},"
+        # parts = generated_text.split("},")
 
-        # Check if there are four or more occurrences
-        if len(parts) >= 4:
-            # Join the first four parts with "},", then add the closing bracket
-            limited_text = "},".join(parts[:4]) + "}]"
-        else:
-            # If fewer than four parts, join all parts and add the closing bracket
-            limited_text = "},".join(parts) + "}]"
+        # # Check if there are four or more occurrences
+        # if len(parts) >= 4:
+        #     # Join the first four parts with "},", then add the closing bracket
+        #     limited_text = "},".join(parts[:4]) + "}]"
+        # else:
+        #     # If fewer than four parts, join all parts and add the closing bracket
+        #     limited_text = "},".join(parts) + "}]"
 
-        return limited_text
+        return generated_text
     except Exception as e:
         return e
 
@@ -104,7 +109,7 @@ def check_for_tasks(worker_id):
                 print(input_text)
                 generated_text = run_inference(input_text)
 
-                cleaned_text = generated_text.replace("\\n", "")
+                cleaned_text = generated_text.replace("\\n", "").replace("```json", "").replace("```", "")
                 print("Cleaned text is: ", cleaned_text)
                 json_object = json.loads(cleaned_text)
                 formatted_output = json.dumps(json_object)
@@ -128,6 +133,8 @@ def check_for_tasks(worker_id):
                 # Only if a specific error is returned, we do NOT delete the cache
                 # In most instances, we do.
                 print('data returned from storeCompletedTask', data)
+                print('Removing cache file...')
+                os.remove('cache.json')
         else:
             if data.get('error_code') == 'ACTIVE_TASK':
                 print('Worker already has a task assigned. Checking for the cache.json file...')
