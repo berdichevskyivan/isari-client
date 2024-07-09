@@ -115,7 +115,27 @@ def check_for_tasks(worker_id):
                             f"This task consists of: {task_description}\n"
                             f"This is the subject: {subject_name}\n"
                             f"This is a brief description of the subject: {subject_description}\n"
-                            f"These are your output instructions: {instructions}")
+                            f"These are your output instructions: {instructions}\n")
+                
+                metrics = data.get('result').get('metrics')
+                if metrics and len(metrics) > 0:
+                    print('There are metrics attached')
+                    input_text += "These are the metrics:\n"
+                    
+                    # Loop through each metric
+                    for metric in metrics:
+                        metric_name = metric.get('name')
+                        metric_description = metric.get('description')
+                        input_text += f"Metric name: {metric_name}\n"
+                        input_text += f"This is a description of the metric: {metric_description}\n"
+                        input_text += "These are the criteria for this metric, to be used ONLY as context:\n"
+                        
+                        # Loop through each criterion within the metric
+                        for criterion in metric.get('criteria', []):
+                            criterion_name = criterion.get('name')
+                            criterion_description = criterion.get('description')
+                            input_text += f"This is the name for this criteria: {criterion_name}\n"
+                            input_text += f"This is the description for this criteria: {criterion_description}\n"
 
                 print(input_text)
                 generated_text = run_inference(input_text)
