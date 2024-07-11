@@ -45,17 +45,6 @@ def run_inference(input_text):
         output = pipe(messages, **generation_args)
         generated_text = output[0]['generated_text']
 
-        # # Split the text by "},"
-        # parts = generated_text.split("},")
-
-        # # Check if there are four or more occurrences
-        # if len(parts) >= 4:
-        #     # Join the first four parts with "},", then add the closing bracket
-        #     limited_text = "},".join(parts[:4]) + "}]"
-        # else:
-        #     # If fewer than four parts, join all parts and add the closing bracket
-        #     limited_text = "},".join(parts) + "}]"
-
         return generated_text
     except Exception as e:
         return e
