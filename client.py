@@ -136,6 +136,10 @@ def check_for_tasks(worker_id):
                             criterion_description = criterion.get('description')
                             input_text += f"This is the name for this criteria: {criterion_name}\n"
                             input_text += f"This is the description for this criteria: {criterion_description}\n"
+                        
+                    input_text += "Do NOT provide a value for the criteria. ONLY provide a value to the metrics.\n"
+                    input_text += "This is an example output, for guidance: { complexity: 99, scope: 99 }\n"
+                    input_text += "Each metric should NOT contain a JSON but rather, a single integer.\n"
 
                 print(input_text)
                 generated_text = run_inference(input_text)
@@ -200,10 +204,14 @@ def check_for_tasks(worker_id):
                         os.remove('cache.json')
                 else:
                     print('There is no cache.json file. Please ask the admins to change the status of this task.')
+            elif data.get('error_code') == 'NO_MORE_TASKS':
+                print("There are no more tasks. Stopping execution.")
             else:
                 print("Error:", data.get('message'))
     except requests.exceptions.RequestException as error:
         print('Error checking for tasks:', error)
+        if os.path.exists('cache.json'):
+            os.remove('cache.json')
 
 if __name__ == "__main__":
     worker_id = 20
