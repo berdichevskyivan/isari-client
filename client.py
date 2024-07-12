@@ -18,7 +18,7 @@ def load_model_and_tokenizer(model_path):
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     return model, tokenizer
 
-def run_inference(input_text):
+def run_inference(input_text, temperature):
     try:
         global model, tokenizer
         if model is None or tokenizer is None:
@@ -36,10 +36,10 @@ def run_inference(input_text):
         )
 
         generation_args = { 
-            "max_new_tokens": 600, 
+            "max_new_tokens": 1000, 
             "return_full_text": False, 
-            "temperature": 0.0, 
-            "do_sample": False, 
+            "temperature": temperature, 
+            "do_sample": temperature > 0, 
         }
         
         output = pipe(messages, **generation_args)
@@ -91,6 +91,14 @@ def check_for_tasks(worker_id):
                     print('Cache file exists but it doesnt match the task id. Removing cache file...')
                     os.remove('cache.json')
             else:
+
+                # Generation args
+                # Temperature varies according to the task type
+                # Currently, only the task type Extrapolation, has sampling and thus increased temperature
+                # This is for the purpose of obtaining more unconventional and novel results, less deterministic ones.
+                # For some tasks, we need deterministic outputs. For others, we don't.
+                temperature = data.get('result').get('taskType').get('temperature')
+
                 role = data.get('result').get('taskType').get('role')
                 task_name = data.get('result').get('taskType').get('name')
                 task_description = data.get('result').get('taskType').get('description')
@@ -131,7 +139,8 @@ def check_for_tasks(worker_id):
                     input_text += "Each metric should NOT contain a JSON but rather, a single integer.\n"
 
                 print(input_text)
-                generated_text = run_inference(input_text)
+                print("Current temperature for this task type is: ", temperature)
+                generated_text = run_inference(input_text, temperature)
 
                 cleaned_text = generated_text.replace("\\n", "").replace("```json", "").replace("```", "")
                 print("Cleaned text is: ", cleaned_text)
