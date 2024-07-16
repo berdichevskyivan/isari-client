@@ -98,21 +98,36 @@ def check_for_tasks(worker_id):
                 # This is for the purpose of obtaining more unconventional and novel results, less deterministic ones.
                 # For some tasks, we need deterministic outputs. For others, we don't.
                 temperature = data.get('result').get('taskType').get('temperature')
-
+                task_type = data.get('result').get('taskType').get('id')
                 role = data.get('result').get('taskType').get('role')
                 task_name = data.get('result').get('taskType').get('name')
                 task_description = data.get('result').get('taskType').get('description')
-                subject_name = data.get('result').get('issue').get('name')
-                subject_description = data.get('result').get('issue').get('description')
                 instructions = next((inst.get('instruction') for inst in data.get('result').get('instructions') if inst.get('instruction_type') == 'output'), '')
+                
+                input_text = ''
 
-                # Here we prepare the input text
-                input_text = (f"Assume this role: {role}\n"
-                            f"You must perform this task: {task_name}\n"
-                            f"This task consists of: {task_description}\n"
-                            f"This is the subject: {subject_name}\n"
-                            f"This is a brief description of the subject: {subject_description}\n"
-                            f"These are your output instructions: {instructions}\n")
+                # If task type is 1, we need to add |Issue Title| and |Issue Context|
+                if task_type == 1:
+                    issue_title = data.get('result').get('userInput').get('issue_title')
+                    issue_context = data.get('result').get('userInput').get('issue_context')
+                    input_text = (f"Assume this role: {role}\n"
+                                f"You must perform this task: {task_name}\n"
+                                f"This task consists of: {task_description}\n"
+                                f"This is the |Issue Title|: {issue_title}\n"
+                                f"This is the |Issue Context|: {issue_context}\n"
+                                f"These are your output instructions: {instructions}\n")
+                else:
+                    # Here we prepare the input text
+                    subject_name = data.get('result').get('issue').get('name')
+                    subject_description = data.get('result').get('issue').get('description')
+                    context = data.get('result').get('issue').get('context')
+                    input_text = (f"Assume this role: {role}\n"
+                                f"You must perform this task: {task_name}\n"
+                                f"This task consists of: {task_description}\n"
+                                f"This is the subject: {subject_name}\n"
+                                f"This is a brief description of the subject: {subject_description}\n"
+                                f"This is a brief context of the subject: {context}\n"
+                                f"These are your output instructions: {instructions}\n")
                 
                 metrics = data.get('result').get('metrics')
                 if metrics and len(metrics) > 0:
