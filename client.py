@@ -2,15 +2,20 @@ import requests
 import threading
 import json
 import os
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline, BitsAndBytesConfig
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv(".env")
+workerKey = os.getenv('WORKER_KEY')
 
 model = None
 tokenizer = None
 
-quantization_4bit_config = BitsAndBytesConfig(load_in_4bit=True)
-quantization_8bit_config = BitsAndBytesConfig(load_in_8bit=True)
-
 def load_model_and_tokenizer(model_path):
+    from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+
+    quantization_4bit_config = BitsAndBytesConfig(load_in_4bit=True)
+    quantization_8bit_config = BitsAndBytesConfig(load_in_8bit=True)
 
     # model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto", torch_dtype="auto", trust_remote_code=True)
     # Quantize the model when loading it for better inference times, but sadly, less performance AKA Intelligence
@@ -19,6 +24,7 @@ def load_model_and_tokenizer(model_path):
     return model, tokenizer
 
 def run_inference(input_text, temperature):
+    from transformers import pipeline
     try:
         global model, tokenizer
         if model is None or tokenizer is None:
@@ -49,10 +55,10 @@ def run_inference(input_text, temperature):
     except Exception as e:
         return e
 
-def check_for_tasks(worker_id):
+def check_for_tasks():
     try:
         check_task_url = 'http://localhost/checkForTask'
-        response = requests.post(check_task_url, json={'workerId': worker_id})
+        response = requests.post(check_task_url, json={'workerKey': workerKey})
         response.raise_for_status()
         data = response.json()
         if data.get('success'):
@@ -72,7 +78,7 @@ def check_for_tasks(worker_id):
                     print({'success': True, 'output': cache_data.get('output')})
                     print("We have the correct cached file. Sending output to the Gateway server...")
                     output = cache_data.get('output')
-                    response = requests.post('http://localhost/storeCompletedTask', json={'output': output, 'worker_id': worker_id, 'task_id': task_id})
+                    response = requests.post('http://localhost/storeCompletedTask', json={'output': output, 'workerKey': workerKey, 'task_id': task_id})
                     response.raise_for_status()
                     # Wait for response
                     data = response.json()
@@ -83,9 +89,11 @@ def check_for_tasks(worker_id):
                     if data.get('success'):
                         print('Successfully sent cached output to Gateway. Will retrieve another task in 5 seconds...')
                         # Create a Timer object that will run 'my_function' after 'delay' seconds
-                        timer = threading.Timer(5, check_for_tasks, args=[worker_id])
+                        timer = threading.Timer(5, check_for_tasks, args=[])
                         # Start the timer
                         timer.start()
+                    else:
+                        print("Error:", data.get('message'))
                 else:
                     # If the task_id doesn't match, delete the cache file
                     print('Cache file exists but it doesnt match the task id. Removing cache file...')
@@ -174,7 +182,7 @@ def check_for_tasks(worker_id):
                 # Once we have a generated text, we need to store it on a local file with the id of the task
                 # if the task id ( data.get('result').get('task').get('id') matches the stored id , the we use that Stored output, and delete the cache once we send it to the Gateway )
                 # We send the output to the Gateway
-                response = requests.post('http://localhost/storeCompletedTask', json={'output': formatted_output, 'worker_id': worker_id, 'task_id': task_id})
+                response = requests.post('http://localhost/storeCompletedTask', json={'output': formatted_output, 'workerKey': workerKey, 'task_id': task_id})
                 response.raise_for_status()
                 # Wait for response
                 data = response.json()
@@ -187,9 +195,11 @@ def check_for_tasks(worker_id):
                 if data.get('success'):
                     print('Successfully sent output to Gateway. Will retrieve another task in 5 seconds...')
                     # Create a Timer object that will run 'my_function' after 'delay' seconds
-                    timer = threading.Timer(5, check_for_tasks, args=[worker_id])
+                    timer = threading.Timer(5, check_for_tasks, args=[])
                     # Start the timer
                     timer.start()
+                else:
+                    print("Error:", data.get('message'))
         else:
             if data.get('error_code') == 'ACTIVE_TASK':
                 print('Worker already has a task assigned. Checking for the cache.json file...')
@@ -207,7 +217,7 @@ def check_for_tasks(worker_id):
                         print({'success': True, 'output': cache_data.get('output')})
                         print("We have the correct cached file. Sending output to the Gateway server...")
                         output = cache_data.get('output')
-                        response = requests.post('http://localhost/storeCompletedTask', json={'output': output, 'worker_id': worker_id, 'task_id': task_id})
+                        response = requests.post('http://localhost/storeCompletedTask', json={'output': output, 'workerKey': workerKey, 'task_id': task_id})
                         response.raise_for_status()
                         # Wait for response
                         data = response.json()
@@ -227,5 +237,10 @@ def check_for_tasks(worker_id):
             os.remove('cache.json')
 
 if __name__ == "__main__":
-    worker_id = 20
-    check_for_tasks(worker_id)
+    # We dont set the worker id here anymore. 
+    # That is set in the database
+    print("WORKER_KEY: ", workerKey)
+    if workerKey:
+        check_for_tasks()
+    else:
+        print("Worker Key was not found. Please add a WORKER_KEY to your .env file")
