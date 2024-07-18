@@ -3,6 +3,7 @@ import threading
 import json
 import os
 from dotenv import load_dotenv
+from hash import compute_file_hash
 
 # Load environment variables from .env file
 load_dotenv(".env")
@@ -10,6 +11,8 @@ workerKey = os.getenv('WORKER_KEY')
 
 model = None
 tokenizer = None
+
+client_script_hash = compute_file_hash("client.py")
 
 def load_model_and_tokenizer(model_path):
     from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
@@ -58,7 +61,7 @@ def run_inference(input_text, temperature):
 def check_for_tasks():
     try:
         check_task_url = 'http://localhost/checkForTask'
-        response = requests.post(check_task_url, json={'workerKey': workerKey})
+        response = requests.post(check_task_url, json={'workerKey': workerKey, 'scriptHash': client_script_hash})
         response.raise_for_status()
         data = response.json()
         if data.get('success'):
@@ -78,7 +81,7 @@ def check_for_tasks():
                     print({'success': True, 'output': cache_data.get('output')})
                     print("We have the correct cached file. Sending output to the Gateway server...")
                     output = cache_data.get('output')
-                    response = requests.post('http://localhost/storeCompletedTask', json={'output': output, 'workerKey': workerKey, 'task_id': task_id})
+                    response = requests.post('http://localhost/storeCompletedTask', json={'output': output, 'workerKey': workerKey, 'scriptHash': client_script_hash, 'task_id': task_id})
                     response.raise_for_status()
                     # Wait for response
                     data = response.json()
@@ -182,7 +185,7 @@ def check_for_tasks():
                 # Once we have a generated text, we need to store it on a local file with the id of the task
                 # if the task id ( data.get('result').get('task').get('id') matches the stored id , the we use that Stored output, and delete the cache once we send it to the Gateway )
                 # We send the output to the Gateway
-                response = requests.post('http://localhost/storeCompletedTask', json={'output': formatted_output, 'workerKey': workerKey, 'task_id': task_id})
+                response = requests.post('http://localhost/storeCompletedTask', json={'output': formatted_output, 'workerKey': workerKey, 'scriptHash': client_script_hash, 'task_id': task_id})
                 response.raise_for_status()
                 # Wait for response
                 data = response.json()
@@ -217,7 +220,7 @@ def check_for_tasks():
                         print({'success': True, 'output': cache_data.get('output')})
                         print("We have the correct cached file. Sending output to the Gateway server...")
                         output = cache_data.get('output')
-                        response = requests.post('http://localhost/storeCompletedTask', json={'output': output, 'workerKey': workerKey, 'task_id': task_id})
+                        response = requests.post('http://localhost/storeCompletedTask', json={'output': output, 'workerKey': workerKey, 'scriptHash': client_script_hash, 'task_id': task_id})
                         response.raise_for_status()
                         # Wait for response
                         data = response.json()
