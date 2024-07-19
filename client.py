@@ -3,7 +3,6 @@ import threading
 import json
 import os
 from dotenv import load_dotenv
-from hash import compute_file_hash
 
 # Load environment variables from .env file
 load_dotenv(".env")
@@ -19,7 +18,7 @@ elif environment == 'local':
 model = None
 tokenizer = None
 
-client_script_hash = compute_file_hash("client.py")
+client_script_hash = None
 
 def load_model_and_tokenizer(model_path):
     from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
@@ -252,6 +251,24 @@ if __name__ == "__main__":
     # That is set in the database
     print("WORKER_KEY: ", workerKey)
     if workerKey:
-        check_for_tasks()
+        try:
+            # Read the content of client.py
+            with open('client.py', 'r') as file:
+                script_content = file.read()
+            # We first send the script to the server and hash it in order to validate it
+            validate_script_url = f'{base_url}validateScript'
+            response = requests.post(validate_script_url, json={'workerKey': workerKey, 'script': script_content})
+            response.raise_for_status()
+            data = response.json()
+            if data.get('success'):
+                print('Script was validated successfully. Proceeding to check for tasks...')
+                client_script_hash = data.get('hash')
+                check_for_tasks()
+            else:
+                print("Error:", data.get('message'))
+        except requests.exceptions.RequestException as error:
+            print('Error validating script:', error)
+            if os.path.exists('cache.json'):
+                os.remove('cache.json')
     else:
         print("Worker Key was not found. Please add a WORKER_KEY to your .env file")
