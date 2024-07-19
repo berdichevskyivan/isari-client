@@ -121,6 +121,7 @@ def check_for_tasks():
                 task_name = data.get('result').get('taskType').get('name')
                 task_description = data.get('result').get('taskType').get('description')
                 instructions = next((inst.get('instruction') for inst in data.get('result').get('instructions') if inst.get('instruction_type') == 'output'), '')
+                negative_prompt = data.get('result').get('negativePrompt')
                 
                 input_text = ''
 
@@ -133,7 +134,8 @@ def check_for_tasks():
                                 f"This task consists of: {task_description}\n"
                                 f"This is the |Issue Title|: {issue_title}\n"
                                 f"This is the |Issue Context|: {issue_context}\n"
-                                f"These are your output instructions: {instructions}\n")
+                                f"These are your output instructions: {instructions}\n\n"
+                                f"|| Exclude this from your output: {negative_prompt}\n")
                 else:
                     # Here we prepare the input text
                     subject_name = data.get('result').get('issue').get('name')
@@ -145,7 +147,9 @@ def check_for_tasks():
                                 f"This is the subject: {subject_name}\n"
                                 f"This is a brief description of the subject: {subject_description}\n"
                                 f"This is a brief context of the subject: {context}\n"
-                                f"These are your output instructions: {instructions}\n")
+                                f"Exclude this from your output: {negative_prompt}\n"
+                                f"These are your output instructions: {instructions}\n\n"
+                                f"|| Exclude this from your output: {negative_prompt}\n")
                 
                 metrics = data.get('result').get('metrics')
                 if metrics and len(metrics) > 0:
