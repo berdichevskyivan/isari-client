@@ -41,6 +41,8 @@ def run_inference(input_text, temperature):
             model, tokenizer = load_model_and_tokenizer(model_path)
 
         messages = [
+            {"role": "system", "content": "You are an expert problem solver and analyzer. You use science, engineering, technology and math to identify or solve problems."},
+            {"role": "system", "content": "Follow the user instructions, SPECIALLY regarding the subjects or fields you need to exclude from your output. Focus solely on practical scientific outputs."},
             {"role": "user", "content": input_text},
         ]
 
