@@ -217,33 +217,7 @@ def check_for_tasks():
                 else:
                     print("Error:", data.get('message'))
         else:
-            if data.get('error_code') == 'ACTIVE_TASK':
-                print('Worker already has a task assigned. Checking for the cache.json file...')
-
-                task_id = data.get('task_id')
-
-                if os.path.exists('cache.json'):
-                    # Load the cached data
-                    with open('cache.json', 'r') as cache_file:
-                        cache_data = json.load(cache_file)
-                    
-                    # Check if the task_id matches
-                    if cache_data.get('task_id') == task_id:
-                        # Bypass inference and send the cached output to the Gateway
-                        print({'success': True, 'output': cache_data.get('output')})
-                        print("We have the correct cached file. Sending output to the Gateway server...")
-                        output = cache_data.get('output')
-                        response = requests.post(store_completed_task_url, json={'output': output, 'workerKey': workerKey, 'scriptHash': client_script_hash, 'task_id': task_id})
-                        response.raise_for_status()
-                        # Wait for response
-                        data = response.json()
-                        print('data returned from storeCompletedTask', data)
-                    else:
-                        print('Task Id received doesn\'t match the task id in the cache.json file. Deleting cache.json file')
-                        os.remove('cache.json')
-                else:
-                    print('There is no cache.json file. Please ask the admins to change the status of this task.')
-            elif data.get('error_code') == 'NO_MORE_TASKS':
+            if data.get('error_code') == 'NO_MORE_TASKS':
                 print("There are no more tasks. Stopping execution.")
             else:
                 print("Error:", data.get('message'))
