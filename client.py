@@ -227,9 +227,6 @@ def check_for_tasks():
             os.remove('cache.json')
 
 if __name__ == "__main__":
-    # We dont set the worker id here anymore. 
-    # That is set in the database
-    print("WORKER_KEY: ", workerKey)
     if workerKey:
         try:
             # Read the content of client.py
