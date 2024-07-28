@@ -9,11 +9,10 @@ load_dotenv(".env")
 workerKey = os.getenv('WORKER_KEY')
 environment = os.getenv('WORKER_ENVIRONMENT')
 
-# Set the base URL based on the environment
-if environment == 'work':
-    base_url = 'https://isari.ai/'
-elif environment == 'local':
+if environment:
     base_url = 'http://localhost/'
+else:
+    base_url = 'https://isari.ai/'
 
 model = None
 tokenizer = None
@@ -107,6 +106,52 @@ def check_for_tasks():
     except requests.exceptions.RequestException as error:
         print('Error checking for tasks:', error)
 
+def check_for_workflow_tasks():
+    try:
+        check_workflow_task_url = f'{base_url}checkForWorkflowTask'
+        store_completed_workflow_task_url = f'{base_url}storeCompletedWorkflowTask'
+        response = requests.post(check_workflow_task_url, json={'workerKey': workerKey, 'scriptHash': client_script_hash})
+        response.raise_for_status()
+        data = response.json()
+        if data.get('success'):
+            print('Successfully received Task.')
+            task_id = data.get('response').get('task_id')
+            temperature = data.get('response').get('temperature')
+            input_text = data.get('response').get('input_text')
+
+            print('Input text: ', input_text)
+            print('Temperature: ', temperature)
+            print('Starting inference...')
+            generated_text = run_inference(input_text, temperature)
+            
+            print('Inference completed. Cleansing output and sending back to Gateway...')
+            cleaned_text = generated_text.replace("\\n", "").replace("```json", "").replace("```", "")
+            json_object = json.loads(cleaned_text)
+            formatted_output = json.dumps(json_object)
+
+            print('Generated output: ', cleaned_text)
+
+            response = requests.post(store_completed_workflow_task_url, json={'output': formatted_output, 'workerKey': workerKey, 'scriptHash': client_script_hash, 'task_id': task_id})
+            response.raise_for_status()
+
+            data = response.json()
+            print('Response from Gateway: ', data)
+
+            # If successful, we run the function again, looking for another task
+            if data.get('success'):
+                print('Successfully sent output to Gateway. Will retrieve another task from the workflow in 5 seconds...')
+                timer = threading.Timer(5, check_for_workflow_tasks, args=[])
+                timer.start()
+            else:
+                print("Error:", data.get('message'))
+        else:
+            if data.get('error_code') == 'NO_MORE_TASKS':
+                print("There are no more tasks. Stopping execution.")
+            else:
+                print("Error:", data.get('message'))
+    except requests.exceptions.RequestException as error:
+        print('Error checking for tasks:', error)
+
 if __name__ == "__main__":
     if workerKey:
         try:
@@ -121,7 +166,22 @@ if __name__ == "__main__":
             if data.get('success'):
                 print('Script was validated successfully. Proceeding to check for tasks...')
                 client_script_hash = data.get('hash')
-                check_for_tasks()
+
+                # while True:
+                #     choice = input("Choose between your personal workflow(1) or the global workflow(2): [1-2] ")
+                    
+                #     if choice == '1':
+                #         check_for_workflow_tasks()
+                #         break
+                #     elif choice == '2':
+                #         check_for_tasks()
+                #         break
+                #     else:
+                #         print("Invalid choice. Please enter 1 or 2.")
+
+                # For now, we just check the personal workflow
+                check_for_workflow_tasks()
+
             else:
                 print("Error:", data.get('message'))
         except requests.exceptions.RequestException as error:
