@@ -2,6 +2,7 @@ import requests
 import threading
 import json
 import os
+import re
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -47,7 +48,7 @@ def run_inference(input_text, temperature):
         )
 
         generation_args = { 
-            "max_new_tokens": 1000, 
+            "max_new_tokens": 2000, 
             "return_full_text": False, 
             "temperature": temperature, 
             "do_sample": temperature > 0, 
@@ -121,11 +122,12 @@ def check_for_workflow_tasks():
             generated_text = run_inference(input_text, temperature)
             
             print('Inference completed. Cleansing output and sending back to Gateway...')
-            cleaned_text = generated_text.replace("\\n", "").replace("```json", "").replace("```", "")
+            print('Raw generated text is: ', generated_text)
+            cleaned_text = re.search(r'(\[.*\]|\{.*\})', generated_text, re.DOTALL).group(0)
             json_object = json.loads(cleaned_text)
             formatted_output = json.dumps(json_object)
 
-            print('Generated output: ', cleaned_text)
+            print('Cleansed output: ', cleaned_text)
 
             response = requests.post(store_completed_workflow_task_url, json={'output': formatted_output, 'workerKey': workerKey, 'scriptHash': client_script_hash, 'task_id': task_id})
             response.raise_for_status()
