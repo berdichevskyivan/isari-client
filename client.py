@@ -24,10 +24,6 @@ def load_model_and_tokenizer(model_path):
 
     quantization_4bit_config = BitsAndBytesConfig(load_in_4bit=True)
     quantization_8bit_config = BitsAndBytesConfig(load_in_8bit=True)
-
-    # model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto", torch_dtype="auto", trust_remote_code=True)
-    # Quantize the model when loading it for better inference times
-    # Better models and more resources will allow us to process tasks more efficiently
     model = AutoModelForCausalLM.from_pretrained(model_path, device_map="auto", torch_dtype="auto", quantization_config=quantization_8bit_config, trust_remote_code=True)
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     return model, tokenizer
